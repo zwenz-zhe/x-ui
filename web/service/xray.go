@@ -3,53 +3,49 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"sync"
-	"x-ui/logger"
-	"x-ui/xray"
 
 	"go.uber.org/atomic"
+
+	"x-ui/logger"
+	"x-ui/xray"
 )
 
-var p *xray.Process
-var lock sync.Mutex
-var isNeedXrayRestart atomic.Bool
-var result string
-
 type XrayService struct {
-	inboundService InboundService
-	settingService SettingService
+	inboundService *InboundService
+	settingService *SettingService
+
+	p                 *xray.Process
+	lock              sync.Mutex
+	isNeedXrayRestart atomic.Bool
+	result            string
 }
 
-func (s *XrayService) IsXrayRunning() bool {
-	return p != nil && p.IsRunning()
+func NewXrayService(inboundService *InboundService, settingService *SettingService) *XrayService {
+	return &XrayService{
+		inboundService: inboundService,
+		settingService: settingService,
+	}
 }
 
 func (s *XrayService) GetXrayErr() error {
-	if p == nil {
+	if s.p == nil {
 		return nil
 	}
-	return p.GetErr()
+	return s.p.GetErr()
 }
 
 func (s *XrayService) GetXrayResult() string {
-	if result != "" {
-		return result
+	if s.result != "" || !s.IsXrayRunning() {
+		return s.result
 	}
-	if s.IsXrayRunning() {
-		return ""
-	}
-	if p == nil {
-		return ""
-	}
-	result = p.GetResult()
-	return result
+	s.result = s.p.GetResult()
+	return s.result
 }
 
-func (s *XrayService) GetXrayVersion() string {
-	if p == nil {
-		return "Unknown"
-	}
-	return p.GetVersion()
+func (s *XrayService) IsXrayRunning() bool {
+	return s.p != nil && s.p.IsRunning()
 }
 
 func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
@@ -64,30 +60,36 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		return nil, err
 	}
 
-	inbounds, err := s.inboundService.GetAllInbounds()
+	inboundConfigs, err := s.getAllInboundConfigs()
 	if err != nil {
 		return nil, err
 	}
-	for _, inbound := range inbounds {
-		if !inbound.Enable {
-			continue
-		}
-		inboundConfig := inbound.GenXrayInboundConfig()
-		xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, *inboundConfig)
-	}
+
+	xrayConfig.InboundConfigs = inboundConfigs
+
 	return xrayConfig, nil
 }
 
-func (s *XrayService) GetXrayTraffic() ([]*xray.Traffic, error) {
-	if !s.IsXrayRunning() {
-		return nil, errors.New("xray is not running")
+func (s *XrayService) getAllInboundConfigs() ([]xray.InboundConfig, error) {
+	filePath := "/path/to/config.json" // 替换为实际的配置文件路径
+
+	configBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
 	}
-	return p.GetTraffic(true)
+
+	var config xray.Config
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config.InboundConfigs, nil
 }
 
 func (s *XrayService) RestartXray(isForce bool) error {
-	lock.Lock()
-	defer lock.Unlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	logger.Debug("restart xray, force:", isForce)
 
 	xrayConfig, err := s.GetXrayConfig()
@@ -95,33 +97,40 @@ func (s *XrayService) RestartXray(isForce bool) error {
 		return err
 	}
 
-	if p != nil && p.IsRunning() {
-		if !isForce && p.GetConfig().Equals(xrayConfig) {
+	if s.p != nil && s.IsXrayRunning() {
+		if !isForce && s.p.GetConfig().Equals(xrayConfig) {
 			logger.Debug("not need to restart xray")
 			return nil
 		}
-		p.Stop()
+		s.p.Stop()
 	}
 
-	p = xray.NewProcess(xrayConfig)
-	result = ""
-	return p.Start()
+	s.p = xray.NewProcess(xrayConfig)
+	s.result = ""
+	return s.p.Start()
 }
 
 func (s *XrayService) StopXray() error {
-	lock.Lock()
-	defer lock.Unlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	logger.Debug("stop xray")
 	if s.IsXrayRunning() {
-		return p.Stop()
+		return s.p.Stop()
 	}
 	return errors.New("xray is not running")
 }
 
 func (s *XrayService) SetToNeedRestart() {
-	isNeedXrayRestart.Store(true)
+	s.isNeedXrayRestart.Store(true)
 }
 
 func (s *XrayService) IsNeedRestartAndSetFalse() bool {
-	return isNeedXrayRestart.CAS(true, false)
+	return s.isNeedXrayRestart.CAS(true, false)
+}
+
+func (s *XrayService) GetXrayTraffic() ([]*xray.Traffic, error) {
+	if !s.IsXrayRunning() {
+		return nil, errors.New("xray is not running")
+	}
+	return s.p.GetTraffic(true)
 }

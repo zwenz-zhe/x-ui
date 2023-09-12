@@ -1,8 +1,12 @@
 package logger
 
 import (
-	"github.com/op/go-logging"
+	"fmt"
 	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/op/go-logging"
 )
 
 var logger *logging.Logger
@@ -55,4 +59,32 @@ func Error(args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	logger.Errorf(format, args...)
+}
+
+func QueryUserTraffic(userID string) {
+	// Generate tcpdump filter expression for user traffic
+	filterExpr := fmt.Sprintf("host %s", userID)
+
+	// Run tcpdump command with filter expression
+	cmd := exec.Command("tcpdump", "-i", "eth0", filterExpr)
+	output, err := cmd.Output()
+	if err != nil {
+		logger.Errorf("Failed to run tcpdump command: %s", err)
+		return
+	}
+
+	// Process the tcpdump output
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		// Log the tcpdump output
+		logger.Infof("TCPDUMP: %s", line)
+	}
+}
+
+func Trace(args ...interface{}) {
+	logger.Debug(args...)
+}
+
+func Tracef(format string, args ...interface{}) {
+	logger.Debugf(format, args...)
 }

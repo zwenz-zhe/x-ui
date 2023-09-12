@@ -5,12 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/host"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/shirou/gopsutil/net"
 	"io"
 	"io/fs"
 	"net/http"
@@ -20,6 +14,13 @@ import (
 	"x-ui/logger"
 	"x-ui/util/sys"
 	"x-ui/xray"
+
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 )
 
 type ProcessState string
@@ -165,8 +166,6 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		}
 		status.Xray.ErrorMsg = s.xrayService.GetXrayResult()
 	}
-	status.Xray.Version = s.xrayService.GetXrayVersion()
-
 	return status
 }
 

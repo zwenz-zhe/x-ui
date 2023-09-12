@@ -1,64 +1,119 @@
 {
-  "api": {
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService"
-    ],
-    "tag": "api"
+  "log": {
+      "loglevel": "warning",
+      "access": "/usr/local/x-ui/bin/access.log",
+      "error": "/usr/local/x-ui/bin/error.log"
   },
+  "routing": {
+      "rules": [
+      {
+          "type": "field",
+          "inboundTag": ["api"],
+          "outboundTag": "api"
+      },
+      {
+          "type": "field",
+          "ip": ["private"],
+          "outboundTag": "blocked"
+      },
+          {
+              "type": "field",
+              "protocol": ["bittorrent"],
+              "outboundTag": "blocked"
+          }
+      ]
+  },
+  "dns": {},
   "inbounds": [
-    {
-      "listen": "127.0.0.1",
+  {
       "port": 62789,
       "protocol": "dokodemo-door",
       "settings": {
-        "address": "127.0.0.1"
+          "address": "127.0.0.1"
       },
-      "tag": "api"
-    }
+      "tag": "inbound-62789"
+  },
+  {
+      "port": 56549,
+      "protocol": "vmess",
+      "settings": {
+          "clients": [
+          {
+              "id": "e167b127-8c4b-4424-acd3-bd829e4c21db",
+              "email": "OPAz.love@xray.com",
+              "alterId": 0
+          }
+          ],
+          "disableInsecureEncryption": false
+      },
+      "streamSettings": {
+          "network": "ws",
+          "security": "none",
+          "wsSettings": {
+              "path": "/e167b127",
+              "headers": {}
+          }
+      },
+      "tag": "inbound-56549",
+      "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls", "quic"]
+      }
+  },
+      {
+          "port": 45111,
+          "protocol": "vless",
+          "settings": {
+              "clients": [
+              {
+                  "id": "937af200-5c54-413a-a857-ca2d114da378",
+                  "email": "q79u.love@xray.com",
+                  "flow": "xtls-rprx-vision"
+              }
+              ],
+              "decryption": "none",
+              "fallbacks": []
+          },
+          "streamSettings": {
+              "network": "tcp",
+              "security": "reality",
+              "tcpSettings": {
+                  "header": {
+                      "type": "none"
+                  }
+              },
+              "tlsSettings": {
+                  "allowInsecure": false,
+                  "serverName": "www.cloudflare.com",
+                  "alpn": ["http/1.1"]
+              }
+          },
+          "tag": "inbound-45111",
+          "sniffing": {
+              "enabled": true,
+              "destOverride": ["http", "tls", "quic"]
+          }
+      },
+      {
+          "port": 54569,
+          "protocol": "dokodemo-door",
+          "settings": {
+              "network": "tcp,udp",
+              "followRedirect": true
+          },
+          "tag": "inbound-54569"
+      }
   ],
   "outbounds": [
-    {
+  {
       "protocol": "freedom",
-      "settings": {}
-    },
-    {
+      "settings": {},
+      "tag": "default"
+  },
+  {
       "protocol": "blackhole",
       "settings": {},
       "tag": "blocked"
-    }
-  ],
-  "policy": {
-    "system": {
-      "statsInboundDownlink": true,
-      "statsInboundUplink": true
-    }
-  },
-  "routing": {
-    "rules": [
-      {
-        "inboundTag": [
-          "api"
-        ],
-        "outboundTag": "api",
-        "type": "field"
-      },
-      {
-        "ip": [
-          "geoip:private"
-        ],
-        "outboundTag": "blocked",
-        "type": "field"
-      },
-      {
-        "outboundTag": "blocked",
-        "protocol": [
-          "bittorrent"
-        ],
-        "type": "field"
-      }
-    ]
-  },
-  "stats": {}
+  }
+  ]
 }
